@@ -3,10 +3,10 @@ import pandas as pd
 import numpy as np
 import matplotlib as plot
 from IPython.display import Image
-import pydotplus
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
+from sklearn.metrics import confusion_matrix
 
 start_time = time.time()
 
@@ -52,12 +52,7 @@ for col in test_x.columns:
 from sklearn import tree
 clf = tree.DecisionTreeClassifier()
 dt = clf.fit(train_x, train_y)
-
-import graphviz
-tree_data = tree.export_graphviz(clf, out_file=None)
-graph = pydotplus.graph_from_dot_data(tree_data)
-Image(graph.create_png())
-graph.write_png("tree.png")
+print("Running Time:", (time.time()-start_time))
 
 # Start predicting process
 prid = clf.predict(test_x)
@@ -65,6 +60,4 @@ prid = clf.predict(test_x)
 #Evaluate the accuracy and the confussion matrix
 print("Accuracy:", clf.score(test_x, test_y))
 
-from sklearn.metrics import confusion_matrix
 print(confusion_matrix(prid, test_y))
-print("Running Time:", (time.time()-start_time))

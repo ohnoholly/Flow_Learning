@@ -47,16 +47,15 @@ for col in test_x.columns:
         le_x.fit(test_x[col])
         test_x[col] = le_x.transform(test_x[col])
 
-#Start training process
-clf = RandomForestClassifier(n_estimators=100)
+from sklearn.naive_bayes import GaussianNB
+start_time = time.time()
+clf = GaussianNB()
 clf.fit(train_x, train_y)
-print("Running Time:", (time.time()-start_time))
+rtime_NN = time.time() - start_time
+print("Running time:", rtime_NN)
 
-# Start predicting process
+ac_NN = clf.score(test_x, test_y)
+print("Accuracy:", ac_NN)
+
 prid = clf.predict(test_x)
-print(clf.feature_importances_)
-
-#Evaluate the accuracy and the confussion matrix
-print("Accuracy:", clf.score(test_x, test_y))
-
 print(confusion_matrix(prid, test_y))

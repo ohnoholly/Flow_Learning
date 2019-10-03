@@ -5,6 +5,7 @@ import matplotlib as plot
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
+from sklearn.metrics import confusion_matrix
 
 start_time = time.time()
 
@@ -50,6 +51,7 @@ for col in test_x.columns:
 from sklearn.svm import LinearSVC
 clf = LinearSVC(random_state=0, tol=1e-5)
 clf.fit(train_x, train_y)
+print("Running Time:", (time.time()-start_time))
 
 # Start predicting process
 prid = clf.predict(test_x)
@@ -57,6 +59,6 @@ prid = clf.predict(test_x)
 #Evaluate the accuracy and the confussion matrix
 print("Accuracy:", clf.score(test_x, test_y))
 
-from sklearn.metrics import confusion_matrix
+
 print(confusion_matrix(prid, test_y))
 print("Running Time:", (time.time()-start_time))
