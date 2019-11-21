@@ -132,6 +132,7 @@ def training(epochs, model, data, labels):
 
 tensor_server_y = tensor_server_y.squeeze()
 ## Train the initial model on Server
+print(tensor_server_y.shape)
 training(epochs, model, tensor_server_x, tensor_server_y)
 
 rtime_FL_init = time.time() - start_time
