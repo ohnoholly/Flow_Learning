@@ -34,6 +34,23 @@ def label_encoder(df):
     df_array = enc.transform(df).toarray() #Encode the classes to a binary array
     return df_array
 
+def f_score(pred, label):
+    pred = torch.unsqueeze(pred, 0)
+    label = torch.unsqueeze(label, 1)
+    true_pos = torch.mm(pred, label)
+    true_pos = float(true_pos)
+    #print("true_pos", true_pos)
+    postive = float(pred.sum())
+    #print(postive)
+    truth = float(label.sum())
+    #print(truth)
+    precision = true_pos/postive
+    #print("P:", precision)
+    recall = true_pos/truth
+    #print("R:", recall)
+    f_score = 2*(precision*recall)/(precision+recall)
+    return f_score
+
 # Load all the data from the CSV file
 BM_DATA_PATH = "../../../Dataset/Botnet_Detection/Philips_B120N10_Baby_Monitor"
 DB_DATA_PATH = "../../../Dataset/Botnet_Detection/Danmini_Doorbell"
@@ -46,8 +63,8 @@ df_db_b = pd.read_csv(DB_DATA_PATH+"/benign_traffic.csv")
 df_db_m = pd.read_csv(DB_DATA_PATH+"/Mirai/udp.csv")
 df_et_b = pd.read_csv(ET_DATA_PATH+"/benign_traffic.csv")
 df_et_m = pd.read_csv(ET_DATA_PATH+"/Mirai/udp.csv")
-df_pt_b = pd.read_csv(ET_DATA_PATH+"/benign_traffic.csv")
-df_pt_m = pd.read_csv(ET_DATA_PATH+"/Mirai/udp.csv")
+df_pt_b = pd.read_csv(PT_DATA_PATH+"/benign_traffic.csv")
+df_pt_m = pd.read_csv(PT_DATA_PATH+"/Mirai/udp.csv")
 df_xc_b = pd.read_csv(XC_DATA_PATH+"/benign_traffic.csv")
 df_xc_m = pd.read_csv(XC_DATA_PATH+"/Mirai/udp.csv")
 
@@ -150,7 +167,7 @@ def net_training(epochs, model, data, labels):
 
         # Compute and print loss
         loss = criterion(y_pred, labels)
-        if e % 100 == 99:
+        if e % 10 == 9:
             print(e, loss.item())
 
         # Zero gradients, perform a backward pass, and update the weights.
@@ -166,8 +183,8 @@ DB = sy.VirtualWorker(hook, id='DB')
 
 #Split the dataset itto training and testing
 from sklearn.model_selection import train_test_split
-b_train_x, b_test_x, b_train_y, b_test_y = train_test_split(df_bm_x, bm_y, test_size=0.20)
-d_train_x, d_test_x, d_train_y, d_test_y = train_test_split(df_db_x, db_y, test_size=0.20)
+b_train_x, b_test_x, b_train_y, b_test_y = train_test_split(df_bm_x, bm_y, test_size=0.50)
+d_train_x, d_test_x, d_train_y, d_test_y = train_test_split(df_db_x, db_y, test_size=0.50)
 
 tensor_server_x = torch.FloatTensor(df_s_x.values.astype(np.float32))
 tensor_server_y = torch.FloatTensor(s_y.astype(np.float32))
@@ -183,6 +200,9 @@ t_d_test_y = torch.tensor(d_test_y.astype(np.float32))
 n_bm, y_bm = t_b_test_y.shape
 n_db, y_db = t_d_test_y.shape
 
+print("n_bm", n_bm)
+print("n_db", n_db)
+
 b_x_train_ptr = t_b_train_x.send(BM)
 b_x_test_ptr = t_b_test_x.send(BM)
 b_y_train_ptr = t_b_train_y.send(BM)
@@ -193,10 +213,10 @@ d_y_train_ptr = t_d_train_y.send(DB)
 d_y_test_ptr = t_d_test_y.send(DB)
 
 #Set up parameters
-epochs = 600
+epochs = 10
 input_dim = 115
 output_dim = 2 #Number of clasees
-h_dim = 100
+h_dim = 50
 lr_rate = 1e-6
 
 
@@ -223,8 +243,8 @@ DB_model = model.copy().send(DB)
 
 print(BM_model)
 
-BM_opt = torch.optim.SGD(params=BM_model.parameters(),lr=lr_rate)
-DB_opt = torch.optim.SGD(params=DB_model.parameters(),lr=lr_rate)
+BM_opt = torch.optim.SGD(params=BM_model.parameters(),lr=1e-8)
+DB_opt = torch.optim.SGD(params=DB_model.parameters(),lr=1e-8)
 
 for e in range(100):
 
@@ -251,22 +271,28 @@ for e in range(100):
     DB_loss.backward()
     DB_opt.step()
 
-    if e % 10 == 0:
-        #print(e, "BM_loss:", BM_loss.item())
-        #print(e, "DB_loss:", DB_loss.item())
+    if e%10 == 0:
+        print(e, "BM_loss:", BM_loss.get())
+        print(e, "DB_loss:", DB_loss.get())
         total_b = n_bm
-        correct = 0
+        correct = 0.0
         outputs_b = BM_model(b_x_test_ptr)
         _b, pred_b = torch.max(outputs_b.data, 1)
         vb, labels_b = torch.max(b_y_test_ptr.data, 1)
-        correct+= (pred_b == labels_b).sum()
-        accuracy_b = 100*correct/total_b
-        print("Iteration:", e, "BM Accuracy: ", accuracy_b.get().data)
+        correct+= float((pred_b == labels_b).sum())
+        accuracy_b = float(100*(correct/total_b))
+        print("Iteration:", e, 'BM Accuracy: {:.4f}'.format(accuracy_b))
+        fscore=f_score(pred_b, labels_b)
+        print('F1_score: ', fscore)
+
+
         total_d = n_db
-        correct = 0
+        correct = 0.0
         outputs_d = DB_model(d_x_test_ptr)
         _d, pred_d = torch.max(outputs_d.data, 1)
         vd, labels_d = torch.max(d_y_test_ptr.data, 1)
-        correct+= (pred_d == labels_d).sum()
-        accuracy_d = 100*correct/total_d
-        print("Iteration:", e, "DB Accuracy: ", accuracy_d.get().data)
+        correct+= float((pred_d == labels_d).sum())
+        accuracy_d = float(100*(correct/total_d))
+        print('DB Accuracy: {:.4f}'.format(accuracy_d))
+        fscore=f_score(pred_d, labels_d)
+        print('F1_score:', fscore)
