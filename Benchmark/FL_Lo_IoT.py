@@ -38,8 +38,8 @@ def label_encoder(df):
 def f_score(pred, label):
     pred = torch.unsqueeze(pred, 0)
     label = torch.unsqueeze(label, 1)
-    print(pred.get().shape)
-    print(label.get().shape)
+    #print(pred.get().shape)
+    #print(label.get().shape)
     true_pos = torch.mm(pred, label)
     true_pos = float(true_pos)
     print("true_pos", true_pos)
