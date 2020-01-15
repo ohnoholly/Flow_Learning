@@ -30,6 +30,23 @@ def encoding(data):
             data[col] = le_x.transform(data[col])
     return data
 
+def f_score(pred, label):
+    pred = torch.unsqueeze(pred, 0)
+    label = torch.unsqueeze(label, 1)
+    true_pos = torch.mm(pred, label)
+    true_pos = float(true_pos)
+    #print("true_pos", true_pos)
+    postive = float(pred.sum())
+    #print(postive)
+    truth = float(label.sum())
+    #print(truth)
+    precision = true_pos/postive
+    #print("P:", precision)
+    recall = true_pos/truth
+    #print("R:", recall)
+    f_score = 2*(precision*recall)/(precision+recall)
+    return f_score
+
 data_server_x = pd.DataFrame(data_server.iloc[:, 0:41])
 data_server_y = pd.DataFrame(data_server.iloc[:, 41])
 data_alice_x = pd.DataFrame(data_alice.iloc[:, 0:41])
@@ -93,6 +110,13 @@ t_b_train_x = torch.tensor(b_train_x.values.astype(np.float32))
 t_b_test_x = torch.tensor(b_test_x.values.astype(np.float32))
 t_b_train_y = torch.tensor(b_train_y.astype(np.float32))
 t_b_test_y = torch.tensor(b_test_y.astype(np.float32))
+
+n_a, y_a = t_a_test_y.shape
+n_b, y_b = t_b_test_y.shape
+
+print("n_a", n_a)
+print("n_b", n_b)
+
 a_x_train_ptr = t_a_train_x.send(Alice)
 a_x_test_ptr = t_a_test_x.send(Alice)
 a_y_train_ptr = t_a_train_y.send(Alice)
@@ -111,29 +135,69 @@ class LogisticRegression(torch.nn.Module):
         outputs = self.linear(x)
         return outputs
 
+class Net(torch.nn.Module):
+    def __init__(self, in_dim, h_dim, out_dim):
+        super(Net, self).__init__()
+        self.linear1 = torch.nn.Linear(in_dim, h_dim)
+        self.bn1 = nn.BatchNorm1d(h_dim)
+        self.linear2 = torch.nn.Linear(h_dim, out_dim)
+
+    def forward(self, x):
+        h_relu = self.linear1(x).clamp(min=0)
+        y_pred = self.linear2(h_relu)
+        return y_pred
+
 #Setting up some parameters
-epochs = 3
+epochs = 10
 input_dim = 41
+h_dim = 20
 output_dim = 2 #Number of clasees
-lr_rate = 0.0001
+lr_rate = 1e-5
 
 model = LogisticRegression(input_dim, output_dim)
 optimizer = torch.optim.SGD(model.parameters(), lr=lr_rate)
 
-def training(epochs, model, data, labels):
-    print(epochs)
+def logistic_training(epochs, model, data, labels):
     for epochs in range(int(epochs)):
         optimizer.zero_grad() ## Zero out the gradient
         outputs = model(data) ## Call forward
+
         loss = ((outputs - labels)**2).sum() ## softmax
+        if epochs % 10 == 9:
+            print(loss)
         loss.backward() ## Accumulated gradient updates into x
-        print(loss)
+        optimizer.step()
+
+def net_training(epochs, model, data, labels):
+    for e in range(int(epochs)):
+        y_pred = model(data)
+
+        # Compute and print loss
+        loss = criterion(y_pred, labels)
+        if e % 10 == 9:
+            print(e, loss.item())
+
+        # Zero gradients, perform a backward pass, and update the weights.
+        optimizer.zero_grad()
+        loss.backward()
         optimizer.step()
 
 tensor_server_y = tensor_server_y.squeeze()
 ## Train the initial model on Server
-print(tensor_server_y.shape)
-training(epochs, model, tensor_server_x, tensor_server_y)
+model = torch.nn.Module()
+#Get the input from the user
+model_type = input("Enter the model to use: ")
+
+if model_type == "0":
+    model = LogisticRegression(input_dim, output_dim)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr_rate)
+    # Train the initial model on Server
+    logistic_training(epochs, model, tensor_server_x, tensor_server_y)
+elif model_type == "1":
+    model = Net(input_dim, h_dim, output_dim)
+    criterion = torch.nn.MSELoss(reduction='sum')
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr_rate)
+    net_training(epochs, model, tensor_server_x, tensor_server_y)
 
 rtime_FL_init = time.time() - start_time
 print("Running time for initial training:", rtime_FL_init)
@@ -144,7 +208,7 @@ alices_model = model.copy().send(Alice)
 bobs_opt = torch.optim.SGD(params=bobs_model.parameters(),lr=lr_rate)
 alices_opt = torch.optim.SGD(params=alices_model.parameters(),lr=lr_rate)
 
-for i in range(2):
+for e in range(100):
 
     # Train Bob's Model
     bobs_opt.zero_grad()
@@ -164,22 +228,32 @@ for i in range(2):
     alices_opt.step()
     alices_loss = alices_loss.get().data
 
-    total = 24701
-    correct = 0
-    outputs_a = alices_model(a_x_test_ptr)
-    _a, pred_a = torch.max(outputs_a.data, 1)
-    va, labels_a = torch.max(a_y_test_ptr.data, 1)
-    correct+= (pred_a == labels_a).sum()
-    accuracy_a = 100*correct/total
-    print("Iteration:", i, "ALice Accuracy: ", accuracy_a.get().data)
+    if e%10 == 0:
+        print(e, "A_loss:", alices_loss)
+        print(e, "B_loss:", bobs_loss)
+        total_a = n_a
+        correct = 0.0
+        outputs_a = alices_model(a_x_test_ptr)
+        _a, pred_a = torch.max(outputs_a.data, 1)
+        vb, labels_a = torch.max(a_y_test_ptr.data, 1)
+        correct+= float((pred_a == labels_a).sum())
+        accuracy_a = float(100*(correct/total_a))
+        fscore=f_score(pred_a, labels_a)
+        print("Iteration:", e)
+        print('Alice Accuracy: {:.4f}'.format(accuracy_a), 'F1_score: ', fscore)
 
-    correct = 0
-    outputs_b = bobs_model(b_x_test_ptr)
-    _b, pred_b = torch.max(outputs_b.data, 1)
-    vb, labels_b = torch.max(b_y_test_ptr.data, 1)
-    correct+= (pred_b == labels_b).sum()
-    accuracy_b = 100*correct/total
-    print("Iteration:", i, "Bob Accuracy: ", accuracy_b.get().data)
+
+
+        total_b = n_b
+        correct = 0.0
+        outputs_b = bobs_model(b_x_test_ptr)
+        _b, pred_b = torch.max(outputs_b.data, 1)
+        vb, labels_b = torch.max(b_y_test_ptr.data, 1)
+        correct+= float((pred_b == labels_b).sum())
+        accuracy_b = float(100*(correct/total_b))
+        fscore=f_score(pred_b, labels_b)
+        print('Bob Accuracy: {:.4f}'.format(accuracy_b),'F1_score: ', fscore)
+
 
 
 rtime = time.time() - start_time

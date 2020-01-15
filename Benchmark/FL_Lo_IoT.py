@@ -10,7 +10,6 @@ from torch.autograd import Variable
 import Sklearn_PyTorch
 import syft as sy
 from sklearn import preprocessing
-import matplotlib.pyplot as plt
 
 def normalize(df):
     x = df.values #returns a numpy array
@@ -38,28 +37,21 @@ def label_encoder(df):
 def f_score(pred, label):
     pred = torch.unsqueeze(pred, 0)
     label = torch.unsqueeze(label, 1)
+    print(pred.get().shape)
+    print(label.get().shape)
     true_pos = torch.mm(pred, label)
     true_pos = float(true_pos)
-    #print("true_pos", true_pos)
+    print("true_pos", true_pos)
     postive = float(pred.sum())
-    #print(postive)
+    print(postive)
     truth = float(label.sum())
-    #print(truth)
+    print(truth)
     precision = true_pos/postive
     #print("P:", precision)
     recall = true_pos/truth
     #print("R:", recall)
     f_score = 2*(precision*recall)/(precision+recall)
     return f_score
-
-def plot(x_axis, y_axis):
-    fig = plt.figure()
-    fig.suptitle('MSE Loss along epochs', fontsize=14, fontweight='bold')
-    plt.plot(x_axis, y_axis)
-    plt.xlabel('Epochs', fontsize=12)
-    plt.ylabel('Loss', fontsize=12)
-    plt.legend()
-    plt.show()
 
 # Load all the data from the CSV file
 BM_DATA_PATH = "../../../Dataset/Botnet_Detection/Philips_B120N10_Baby_Monitor"
@@ -171,16 +163,14 @@ def logistic_training(epochs, model, data, labels):
         loss.backward() ## Accumulated gradient updates into x
         optimizer.step()
 
-def net_training(epochs, model, data, labels ,loss_array, epoch_array):
+def net_training(epochs, model, data, labels):
     for e in range(int(epochs)):
         y_pred = model(data)
 
         # Compute and print loss
         loss = criterion(y_pred, labels)
-        if e % 10 == 0:
-            print(e, loss.data)
-            loss_array.append(float(loss))
-            epoch_array.append(e)
+        if e % 10 == 9:
+            print(e, loss.item().data)
 
         # Zero gradients, perform a backward pass, and update the weights.
         optimizer.zero_grad()
@@ -229,12 +219,10 @@ epochs = 200
 input_dim = 115
 output_dim = 2 #Number of clasees
 h_dim = 50
-lr_rate = 1e-6
+lr_rate = 1e-7
 
 
 model = torch.nn.Module()
-loss_array = []
-epoch_array = []
 #Get the input from the user
 model_type = input("Enter the model to use: ")
 
@@ -248,8 +236,7 @@ elif model_type == "1":
     model = Net(input_dim, h_dim, output_dim)
     criterion = torch.nn.MSELoss(reduction='sum')
     optimizer = torch.optim.SGD(model.parameters(), lr=lr_rate)
-    net_training(epochs, model, tensor_server_x, tensor_server_y, loss_array, epoch_array)
-    plot(epoch_array, loss_array)
+    net_training(epochs, model, tensor_server_x, tensor_server_y)
 
 
 #Send the initial model to the workers
@@ -263,51 +250,48 @@ DB_opt = torch.optim.SGD(params=DB_model.parameters(),lr=1e-8)
 
 for e in range(100):
 
-    #Baby Monitor
-    #print(b_x_train_ptr.get())
-    BM_pred = BM_model(b_x_train_ptr)
 
-    # Compute and print loss
-    BM_loss = criterion(BM_pred, b_y_train_ptr)
-
-    # Zero gradients, perform a backward pass, and update the weights.
     BM_opt.zero_grad()
+    BM_pred = BM_model(b_x_train_ptr)
+    BM_loss = ((BM_pred - b_y_train_ptr)**2).sum()
     BM_loss.backward()
+
     BM_opt.step()
+    BM_loss = BM_loss.get().data
 
-    #Door Bell
-    DB_pred = DB_model(d_x_train_ptr)
-
-    # Compute and print loss
-    DB_loss = criterion(DB_pred, d_y_train_ptr)
-
-    # Zero gradients, perform a backward pass, and update the weights.
     DB_opt.zero_grad()
+    DB_pred = DB_model(d_x_train_ptr)
+    DB_loss = ((DB_pred - d_y_train_ptr)**2).sum()
     DB_loss.backward()
+
     DB_opt.step()
+    DB_loss = DB_loss.get().data
 
-    if e%10 == 0:
-        print(e, "BM_loss:", BM_loss.get())
-        print(e, "DB_loss:", DB_loss.get())
-        total_b = n_bm
-        correct = 0.0
-        outputs_b = BM_model(b_x_test_ptr)
-        _b, pred_b = torch.max(outputs_b.data, 1)
-        vb, labels_b = torch.max(b_y_test_ptr.data, 1)
-        correct+= float((pred_b == labels_b).sum())
-        accuracy_b = float(100*(correct/total_b))
-        fscore=f_score(pred_b, labels_b)
-        print("Iteration:", e)
-        print('BM Accuracy: {:.4f}'.format(accuracy_b), 'F1_score: ', fscore)
+    if e%10 == 9:
+          print(e, "BM_loss:", BM_loss.data)
+          print(e, "DB_loss:", DB_loss.data)
+          total_b = n_bm
+          correct = 0.0
+          outputs_b = BM_model(b_x_test_ptr)
+
+          _b, pred_b = torch.max(outputs_b.data, 1)
+          vb, labels_b = torch.max(b_y_test_ptr.data, 1)
+          #print(pred_b.get().data)
+          #print(labels_b.get().data)
+          correct+= float((pred_b == labels_b).sum())
+          accuracy_b = float(100*(correct/total_b))
+          fscore=f_score(pred_b, labels_b)
+          print("Iteration:", e)
+          print('BM Accuracy: {:.4f}'.format(accuracy_b), 'F1_score: ', fscore)
 
 
 
-        total_d = n_db
-        correct = 0.0
-        outputs_d = DB_model(d_x_test_ptr)
-        _d, pred_d = torch.max(outputs_d.data, 1)
-        vd, labels_d = torch.max(d_y_test_ptr.data, 1)
-        correct+= float((pred_d == labels_d).sum())
-        accuracy_d = float(100*(correct/total_d))
-        fscore=f_score(pred_d, labels_d)
-        print('DB Accuracy: {:.4f}'.format(accuracy_d),'F1_score: ', fscore)
+          total_d = n_db
+          correct = 0.0
+          outputs_d = DB_model(d_x_test_ptr)
+          _d, pred_d = torch.max(outputs_d.data, 1)
+          vd, labels_d = torch.max(d_y_test_ptr.data, 1)
+          correct+= float((pred_d == labels_d).sum())
+          accuracy_d = float(100*(correct/total_d))
+          fscore=f_score(pred_d, labels_d)
+          print('DB Accuracy: {:.4f}'.format(accuracy_d),'F1_score: ', fscore)
