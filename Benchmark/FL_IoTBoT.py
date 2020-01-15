@@ -52,10 +52,12 @@ def f_score(pred, label):
     f_score = 2*(precision*recall)/(precision+recall)
     return f_score
 
-def plot(x_axis, y_axis):
+def plot(x_axis, y_axis, y_axis2=None, label1='', label2=''):
     fig = plt.figure()
     fig.suptitle('MSE Loss along epochs', fontsize=14, fontweight='bold')
-    plt.plot(x_axis, y_axis)
+    plt.plot(x_axis, y_axis, label=label1)
+    if y_axis2 != None:
+        plt.plot(x_axis, y_axis2, label=label2)
     plt.xlabel('Epochs', fontsize=12)
     plt.ylabel('Loss', fontsize=12)
     plt.legend()
@@ -260,8 +262,10 @@ print(BM_model)
 
 BM_opt = torch.optim.SGD(params=BM_model.parameters(),lr=1e-8)
 DB_opt = torch.optim.SGD(params=DB_model.parameters(),lr=1e-8)
-
-for e in range(100):
+BM_loss_a = []
+DB_loss_a = []
+epoch_local_array = []
+for e in range(200):
 
     #Baby Monitor
     #print(b_x_train_ptr.get())
@@ -287,8 +291,13 @@ for e in range(100):
     DB_opt.step()
 
     if e%10 == 0:
-        print(e, "BM_loss:", BM_loss.get())
-        print(e, "DB_loss:", DB_loss.get())
+        BM_loss_f = float(BM_loss.get().data)
+        DB_loss_f = float(DB_loss.get().data)
+        print(e, "BM_loss:", BM_loss_f)
+        print(e, "DB_loss:", DB_loss_f)
+        BM_loss_a.append(BM_loss_f)
+        DB_loss_a.append(DB_loss_f)
+        epoch_local_array.append(e)
         total_b = n_bm
         correct = 0.0
         outputs_b = BM_model(b_x_test_ptr)
@@ -311,3 +320,5 @@ for e in range(100):
         accuracy_d = float(100*(correct/total_d))
         fscore=f_score(pred_d, labels_d)
         print('DB Accuracy: {:.4f}'.format(accuracy_d),'F1_score: ', fscore)
+
+plot(epoch_local_array, BM_loss_a, DB_loss_a, 'BM', 'DB')

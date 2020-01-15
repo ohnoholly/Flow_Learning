@@ -10,6 +10,7 @@ from torch.autograd import Variable
 import Sklearn_PyTorch
 import syft as sy
 from sklearn import preprocessing
+import matplotlib.pyplot as plt
 
 def normalize(df):
     x = df.values #returns a numpy array
@@ -52,6 +53,18 @@ def f_score(pred, label):
     #print("R:", recall)
     f_score = 2*(precision*recall)/(precision+recall)
     return f_score
+
+def plot(x_axis, y_axis, y_axis2=None, label1='', label2=''):
+    fig = plt.figure()
+    fig.suptitle('MSE Loss along epochs', fontsize=14, fontweight='bold')
+    plt.plot(x_axis, y_axis, label=label1)
+    if y_axis2 != None:
+        plt.plot(x_axis, y_axis2, label=label2)
+    plt.xlabel('Epochs', fontsize=12)
+    plt.ylabel('Loss', fontsize=12)
+    plt.legend()
+    plt.show()
+
 
 # Load all the data from the CSV file
 BM_DATA_PATH = "../../../Dataset/Botnet_Detection/Philips_B120N10_Baby_Monitor"
