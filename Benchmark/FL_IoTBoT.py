@@ -1,13 +1,11 @@
 import sys
 import numpy as np
-
 import torch
 from torch.nn import Parameter
 import torch.nn as nn
 import torch.nn.functional as F
-import pandas as pd
 from torch.autograd import Variable
-import Sklearn_PyTorch
+import pandas as pd
 import syft as sy
 from sklearn import preprocessing
 import matplotlib.pyplot as plt
@@ -142,7 +140,7 @@ bm_y = label_encoder(df_bm_y)
 db_y = label_encoder(df_db_y)
 
 #The different models ready to use:
-class LogisticRegression(torch.nn.Module):
+class LogisticRegression(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(LogisticRegression, self).__init__()
         self.linear = torch.nn.Linear(input_dim, output_dim)
@@ -152,7 +150,7 @@ class LogisticRegression(torch.nn.Module):
         outputs = self.linear(x)
         return outputs
 
-class Net(torch.nn.Module):
+class Net(nn.Module):
     def __init__(self, in_dim, h_dim, out_dim):
         super(Net, self).__init__()
         self.linear1 = torch.nn.Linear(in_dim, h_dim)
@@ -239,7 +237,7 @@ h_dim = 50
 lr_rate = 1e-8
 
 
-model = torch.nn.Module()
+model = nn.Module()
 loss_array = []
 epoch_array = []
 #Get the input from the user
