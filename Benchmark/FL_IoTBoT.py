@@ -165,14 +165,16 @@ class Net(torch.nn.Module):
         return y_pred
 
 
-def logistic_training(epochs, model, data, labels):
+def logistic_training(epochs, model, data, labels, loss_array, epoch_array):
     for epochs in range(int(epochs)):
         optimizer.zero_grad() ## Zero out the gradient
         outputs = model(data) ## Call forward
 
         loss = ((outputs - labels)**2).sum() ## softmax
-        if epochs % 10 == 9:
-            print(loss)
+        if epochs % 10 == 0:
+            print(loss.data)
+            loss_array.append(float(loss))
+            epoch_array.append(epochs)
         loss.backward() ## Accumulated gradient updates into x
         optimizer.step()
 
@@ -234,7 +236,7 @@ epochs = 200
 input_dim = 115
 output_dim = 2 #Number of clasees
 h_dim = 50
-lr_rate = 1e-6
+lr_rate = 1e-8
 
 
 model = torch.nn.Module()
@@ -246,9 +248,13 @@ start_time = time.time()
 
 if model_type == "0":
     model = LogisticRegression(input_dim, output_dim)
+    criterion = torch.nn.MSELoss(reduction='sum')
     optimizer = torch.optim.SGD(model.parameters(), lr=lr_rate)
     # Train the initial model on Server
-    logistic_training(epochs, model, tensor_server_x, tensor_server_y)
+    logistic_training(epochs, model, tensor_server_x, tensor_server_y, loss_array, epoch_array)
+    rtime_FL_init = time.time() - start_time
+    print("Running time for initial training:", rtime_FL_init)
+    plot(epoch_array, loss_array)
 elif model_type == "1":
     model = Net(input_dim, h_dim, output_dim)
     criterion = torch.nn.MSELoss(reduction='sum')
@@ -265,8 +271,8 @@ DB_model = model.copy().send(DB)
 
 print(BM_model)
 
-BM_opt = torch.optim.SGD(params=BM_model.parameters(),lr=1e-5)
-DB_opt = torch.optim.SGD(params=DB_model.parameters(),lr=1e-5)
+BM_opt = torch.optim.SGD(params=BM_model.parameters(),lr=1e-7)
+DB_opt = torch.optim.SGD(params=DB_model.parameters(),lr=1e-7)
 BM_loss_a = []
 DB_loss_a = []
 BM_ac = []
