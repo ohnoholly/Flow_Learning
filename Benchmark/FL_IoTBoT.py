@@ -11,6 +11,9 @@ import Sklearn_PyTorch
 import syft as sy
 from sklearn import preprocessing
 import matplotlib.pyplot as plt
+import time
+
+start_time = time.time()
 
 def normalize(df):
     x = df.values #returns a numpy array
@@ -64,11 +67,11 @@ def plot(x_axis, y_axis, y_axis2=None, label1='', label2=''):
     plt.show()
 
 # Load all the data from the CSV file
-BM_DATA_PATH = "../../../Dataset/Botnet_Detection/Philips_B120N10_Baby_Monitor"
-DB_DATA_PATH = "../../../Dataset/Botnet_Detection/Danmini_Doorbell"
-ET_DATA_PATH = "../../../Dataset/Botnet_Detection/Ecobee_Thermostat"
-PT_DATA_PATH = "../../../Dataset/Botnet_Detection/PT_838_Security Camera"
-XC_DATA_PATH = "../../../Dataset/Botnet_Detection/XCS7_1002_WHT_Security_Camera"
+BM_DATA_PATH = "../../../Dataset/Botnet_Detection/PT_838_Security Camera"
+DB_DATA_PATH = "../../../Dataset/Botnet_Detection/XCS7_1003_WHT_Security_Camera"
+ET_DATA_PATH = "../../../Dataset/Botnet_Detection/PT737E_Security Camera"
+PT_DATA_PATH = "../../../Dataset/Botnet_Detection/XCS7_1002_WHT_Security_Camera"
+#XC_DATA_PATH = "../../../Dataset/Botnet_Detection/XCS7_1002_WHT_Security_Camera"
 df_bm_b = pd.read_csv(BM_DATA_PATH+"/benign_traffic.csv")
 df_bm_m = pd.read_csv(BM_DATA_PATH+"/Mirai/udp.csv")
 df_db_b = pd.read_csv(DB_DATA_PATH+"/benign_traffic.csv")
@@ -77,20 +80,20 @@ df_et_b = pd.read_csv(ET_DATA_PATH+"/benign_traffic.csv")
 df_et_m = pd.read_csv(ET_DATA_PATH+"/Mirai/udp.csv")
 df_pt_b = pd.read_csv(PT_DATA_PATH+"/benign_traffic.csv")
 df_pt_m = pd.read_csv(PT_DATA_PATH+"/Mirai/udp.csv")
-df_xc_b = pd.read_csv(XC_DATA_PATH+"/benign_traffic.csv")
-df_xc_m = pd.read_csv(XC_DATA_PATH+"/Mirai/udp.csv")
+#df_xc_b = pd.read_csv(XC_DATA_PATH+"/benign_traffic.csv")
+#df_xc_m = pd.read_csv(XC_DATA_PATH+"/Mirai/udp.csv")
 
 #Assign the label to each dataframe
 df_bm_b = df_bm_b.assign(label = 'b')
 df_db_b = df_db_b.assign(label = 'b')
 df_et_b = df_et_b.assign(label = 'b')
 df_pt_b = df_pt_b.assign(label = 'b')
-df_xc_b = df_xc_b.assign(label = 'b')
+#df_xc_b = df_xc_b.assign(label = 'b')
 df_bm_m = df_bm_m.assign(label = 'm')
 df_db_m = df_db_m.assign(label = 'm')
 df_et_m = df_et_m.assign(label = 'm')
 df_pt_m = df_pt_m.assign(label = 'm')
-df_xc_m = df_xc_m.assign(label = 'm')
+#df_xc_m = df_xc_m.assign(label = 'm')
 
 #Combine the benign traffic and malicious traffic
 df_bm = df_bm_b
@@ -101,8 +104,8 @@ df_et = df_et_b
 df_et = df_et.append(df_et_m, ignore_index = True)
 df_pt = df_pt_b
 df_pt = df_pt.append(df_pt_m, ignore_index = True)
-df_xc = df_xc_b
-df_xc = df_xc.append(df_xc_m, ignore_index = True)
+#df_xc = df_xc_b
+#df_xc = df_xc.append(df_xc_m, ignore_index = True)
 
 def shuffler(df):
   return df.reindex(np.random.permutation(df.index))
@@ -112,13 +115,13 @@ df_bm = shuffler(df_bm)
 df_db = shuffler(df_db)
 df_et = shuffler(df_et)
 df_pt = shuffler(df_pt)
-df_xc = shuffler(df_xc)
+#df_xc = shuffler(df_xc)
 
 # Create a dataset on server for initial model (second version)
 df_server = pd.DataFrame()
-df_server = df_server.append(df_et.sample(frac =.25), ignore_index=True)
-df_server = df_server.append(df_pt.sample(frac =.25), ignore_index=True)
-df_server = df_server.append(df_xc.sample(frac =.25), ignore_index=True)
+df_server = df_server.append(df_et.sample(frac =.50), ignore_index=True)
+df_server = df_server.append(df_pt.sample(frac =.50), ignore_index=True)
+#df_server = df_server.append(df_xc.sample(frac =.25), ignore_index=True)
 
 #Divide dataframe into x and y
 df_s_x = pd.DataFrame(df_server.iloc[:, 0:115])
@@ -239,7 +242,7 @@ loss_array = []
 epoch_array = []
 #Get the input from the user
 model_type = input("Enter the model to use: ")
-
+start_time = time.time()
 
 if model_type == "0":
     model = LogisticRegression(input_dim, output_dim)
@@ -251,6 +254,8 @@ elif model_type == "1":
     criterion = torch.nn.MSELoss(reduction='sum')
     optimizer = torch.optim.SGD(model.parameters(), lr=lr_rate)
     net_training(epochs, model, tensor_server_x, tensor_server_y, loss_array, epoch_array)
+    rtime_FL_init = time.time() - start_time
+    print("Running time for initial training:", rtime_FL_init)
     plot(epoch_array, loss_array)
 
 
@@ -260,10 +265,14 @@ DB_model = model.copy().send(DB)
 
 print(BM_model)
 
-BM_opt = torch.optim.SGD(params=BM_model.parameters(),lr=1e-8)
-DB_opt = torch.optim.SGD(params=DB_model.parameters(),lr=1e-8)
+BM_opt = torch.optim.SGD(params=BM_model.parameters(),lr=1e-5)
+DB_opt = torch.optim.SGD(params=DB_model.parameters(),lr=1e-5)
 BM_loss_a = []
 DB_loss_a = []
+BM_ac = []
+DB_ac = []
+BM_f = []
+DB_f = []
 epoch_local_array = []
 for e in range(200):
 
@@ -305,7 +314,9 @@ for e in range(200):
         vb, labels_b = torch.max(b_y_test_ptr.data, 1)
         correct+= float((pred_b == labels_b).sum())
         accuracy_b = float(100*(correct/total_b))
+        BM_ac.append(accuracy_b)
         fscore=f_score(pred_b, labels_b)
+        BM_f.append(fscore)
         print("Iteration:", e)
         print('BM Accuracy: {:.4f}'.format(accuracy_b), 'F1_score: ', fscore)
 
@@ -318,7 +329,15 @@ for e in range(200):
         vd, labels_d = torch.max(d_y_test_ptr.data, 1)
         correct+= float((pred_d == labels_d).sum())
         accuracy_d = float(100*(correct/total_d))
+        DB_ac.append(accuracy_d)
         fscore=f_score(pred_d, labels_d)
+        DB_f.append(fscore)
         print('DB Accuracy: {:.4f}'.format(accuracy_d),'F1_score: ', fscore)
 
-plot(epoch_local_array, BM_loss_a, DB_loss_a, 'BM', 'DB')
+
+rtime = time.time() - start_time
+rtime_FL_local = rtime-rtime_FL_init
+print("Running time for secnodary training:", rtime_FL_local)
+plot(epoch_local_array, BM_loss_a, DB_loss_a, 'PT', 'XC')
+plot(epoch_local_array, BM_ac, DB_ac, 'PT', 'XC')
+plot(epoch_local_array, BM_f, DB_f, 'PT', 'XC')
