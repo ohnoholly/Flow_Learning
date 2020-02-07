@@ -71,13 +71,13 @@ ET_DATA_PATH = "../../../Dataset/Botnet_Detection/PT737E_Security Camera"
 PT_DATA_PATH = "../../../Dataset/Botnet_Detection/XCS7_1002_WHT_Security_Camera"
 #XC_DATA_PATH = "../../../Dataset/Botnet_Detection/XCS7_1002_WHT_Security_Camera"
 df_bm_b = pd.read_csv(BM_DATA_PATH+"/benign_traffic.csv")
-df_bm_m = pd.read_csv(BM_DATA_PATH+"/Mirai/udp.csv")
+df_bm_m = pd.read_csv(BM_DATA_PATH+"/Mirai/udpplain.csv")
 df_db_b = pd.read_csv(DB_DATA_PATH+"/benign_traffic.csv")
-df_db_m = pd.read_csv(DB_DATA_PATH+"/Mirai/udp.csv")
+df_db_m = pd.read_csv(DB_DATA_PATH+"/Mirai/udpplain.csv")
 df_et_b = pd.read_csv(ET_DATA_PATH+"/benign_traffic.csv")
-df_et_m = pd.read_csv(ET_DATA_PATH+"/Mirai/udp.csv")
+df_et_m = pd.read_csv(ET_DATA_PATH+"/Mirai/udpplain.csv")
 df_pt_b = pd.read_csv(PT_DATA_PATH+"/benign_traffic.csv")
-df_pt_m = pd.read_csv(PT_DATA_PATH+"/Mirai/udp.csv")
+df_pt_m = pd.read_csv(PT_DATA_PATH+"/Mirai/udpplain.csv")
 #df_xc_b = pd.read_csv(XC_DATA_PATH+"/benign_traffic.csv")
 #df_xc_m = pd.read_csv(XC_DATA_PATH+"/Mirai/udp.csv")
 
