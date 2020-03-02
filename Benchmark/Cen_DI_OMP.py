@@ -154,7 +154,7 @@ def OMP(y, V, sl, ep):
         r = y - torch.mm(c, s_matrix)
         k = k+1
 
-    print(s_index)
+    #print(s_index)
     v=0
     for sk in s_index:
         c_encode[0][sk] = c[0][v]
@@ -168,19 +168,26 @@ def projecting(train, test, size, sp, ep, threshold):
         c = OMP(v, train[:size][:], sp, ep)
         t = v - torch.mm(c, train[:size][:])
         distance = np.linalg.norm(t)
-        print("id:", ids, "dist:",distance)
+        #print("id:", ids, "dist:",distance)
         if distance < threshold:
             re[ids][0] = 1.0
         else:
             re[ids][1] = 1.0
-    print(re)
+    #print(re)
     return re
 
-re = projecting(train_x, test_x, 200, 10, 0.001, 100000000000.0)
-total = len(test_x)
-correct = 0.0
-_, pred = torch.max(re, 1)
-v, label = torch.max(test_y, 1)
-correct+= float((pred == label).sum())
-accuracy = float(100*(correct/total))
-print('Accuracy: {:.4f}'.format(accuracy))
+sp = 5
+while sp <= 20:
+    size = 100
+    while size <= 300:
+        re = projecting(train_x, test_x, size, sp, 0.001, 100000000000.0)
+        total = len(test_x)
+        correct = 0.0
+        _, pred = torch.max(re, 1)
+        v, label = torch.max(test_y, 1)
+        correct+= float((pred == label).sum())
+        accuracy = float(100*(correct/total))
+        print("Sp:", sp, "Size:", size, 'Accuracy: {:.4f}'.format(accuracy))
+        size = size + 100
+
+    sp = sp + 5
