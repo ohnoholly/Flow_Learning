@@ -59,9 +59,24 @@ def plot(x_axis, y_axis, y_axis2=None, label1='', label2='', title='', yax=''):
     plt.plot(x_axis, y_axis, label=label1)
     if y_axis2 != None:
         plt.plot(x_axis, y_axis2, label=label2)
-    plt.xlabel('Epochs', fontsize=12)
-    plt.ylabel(yax, fontsize=12)
+        plt.xlabel('Epochs', fontsize=12)
+        plt.ylabel(yax, fontsize=12)
     plt.legend()
+    plt.show()
+
+def group_hist(labels, v1, v2, v3=None):
+    x = np.arange(len(labels))  # the label locations
+    width = 0.36  # the width of the bars
+    fig, ax = plt.subplots()
+    rects1 = ax.bar(x - width/3, v1, width/3, label='size=100')
+    rects2 = ax.bar(x, v2, width/3, label='size=200')
+    rects3 = ax.bar(x+ width/3, v3, width/3, label='size=300')
+
+    ax.set_ylabel('Accuracy')
+    ax.set_title('Accuracy per sparse level')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.legend()
     plt.show()
 
 
@@ -89,8 +104,8 @@ df_all = shuffler(df_all)
 
 #Sample some instances from the dataset
 test_set = df_pt1.sample(frac=0.001, random_state=1)
-test_set = test_set.append(df_xc1.sample(frac=0.001, random_state=1))
-#test_set = shuffler(test_set)
+test_set = test_set.append(df_pt2.sample(frac=0.001, random_state=1))
+test_set = shuffler(test_set)
 print(test_set.shape)
 
 train_x = pd.DataFrame(df_all.iloc[:, 0:115])
@@ -176,6 +191,10 @@ def projecting(train, test, size, sp, ep, threshold):
     #print(re)
     return re
 
+sp_array = []
+size1 = []
+size2 = []
+size3 = []
 sp = 5
 while sp <= 20:
     size = 100
@@ -188,6 +207,15 @@ while sp <= 20:
         correct+= float((pred == label).sum())
         accuracy = float(100*(correct/total))
         print("Sp:", sp, "Size:", size, 'Accuracy: {:.4f}'.format(accuracy))
-        size = size + 100
+        if size == 100:
+            size1.append(accuracy)
+        elif size == 200:
+            size2.append(accuracy)
+        elif size == 300:
+            size3.append(accuracy)
 
+        size = size + 100
+    sp_array.append(sp)
     sp = sp + 5
+
+group_hist(sp_array, size1, size2, size3)
