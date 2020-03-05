@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import pandas as pd
-import syft as sy
 from sklearn import preprocessing
 import matplotlib.pyplot as plt
 import time
